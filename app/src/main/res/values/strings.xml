@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">lb1</string>
+    <string name="title_choose">Оберіть книгу та рік</string>
+    <string name="label_authors">Автори / Книги:</string>
+    <string name="label_year">Рік видання:</string>
+    <string name="year_2020">2020</string>
+    <string name="year_2021">2021</string>
+    <string name="year_2022">2022</string>
+    <string name="btn_ok">ОК</string>
+    <string name="default_result">Результат буде тут</string>
+
+    <string name="warning_title">Неповні дані</string>
+    <string name="warning_message">Будь ласка, оберіть рік видання.</string>
+    <string name="result_format">Обрано:\nКнига: %1$s\nРік: %2$s</string>
+</resources>

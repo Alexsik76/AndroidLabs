@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="box_background">#1AFFFFFF</color>
+    <color name="box_stroke">#A0A0A0</color>
+</resources>
