@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">lb2</string>
+    <string name="app_name">lb3</string>
     <string name="title_choose">Оберіть книгу та рік</string>
     <string name="label_authors">Автори / Книги:</string>
     <string name="label_year">Рік видання:</string>
