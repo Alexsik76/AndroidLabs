@@ -1,29 +1,31 @@
 package com.example.lb1
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
 import android.widget.Button
-import android.widget.RadioButton
+import android.widget.EditText
 import android.widget.RadioGroup
-import android.widget.Spinner
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.lb1.adapter.BookAdapter
+import com.example.lb1.data.DatabaseManager
+import com.example.lb1.model.Book
+
 
 class InputFragment : Fragment() {
 
-    private lateinit var spinnerBooks: Spinner
-    private lateinit var radioGroupYears: RadioGroup
-    private lateinit var btnOk: Button
+    private lateinit var rvBooks: RecyclerView
+    private lateinit var rgFilter: RadioGroup
+    private lateinit var btnAddBook: Button
 
-    private val books = arrayOf(
-        "Kobzar - T. Shevchenko",
-        "The Forest Song - L. Ukrainka",
-        "Tiger Trappers - I. Bagryanyi",
-        "Shadows of Forgotten Ancestors - M. Kotsiubynsky"
-    )
+    private lateinit var dbManager: DatabaseManager
+    private lateinit var bookAdapter: BookAdapter
 
     interface OnDataPassedListener {
         fun onDataPassed(text: String)
@@ -31,22 +33,16 @@ class InputFragment : Fragment() {
 
     private var dataPasser: OnDataPassedListener? = null
 
-    override fun onAttach(context: android.content.Context) {
+    override fun onAttach(context: Context) {
         super.onAttach(context)
-        // Перевіряємо, чи Activity підписалася на наш інтерфейс
         if (context is OnDataPassedListener) {
             dataPasser = context
         }
-    }
-
-    override fun onDetach() {
-        super.onDetach()
-        dataPasser = null
+        dbManager = DatabaseManager(requireContext())
     }
 
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
+        inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         return inflater.inflate(R.layout.fragment_input, container, false)
@@ -55,64 +51,81 @@ class InputFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        initializeViews(view)
-        setupSpinner()
-        setupListeners()
+        setupRecyclerView(view)
+        setupFilter(view)
+
+        btnAddBook = view.findViewById(R.id.btnAddBook)
+        btnAddBook.setOnClickListener {
+            showAddBookDialog()
+        }
     }
 
-    private fun initializeViews(view: View) {
-        spinnerBooks = view.findViewById(R.id.spinnerBooks)
-        radioGroupYears = view.findViewById(R.id.radioGroupYears)
-        btnOk = view.findViewById(R.id.btnOk)
-    }
+    private fun setupRecyclerView(view: View) {
+        rvBooks = view.findViewById(R.id.rvBooks)
+        rvBooks.layoutManager = LinearLayoutManager(requireContext())
 
-    private fun setupSpinner() {
-        val adapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_spinner_dropdown_item,
-            books
+        bookAdapter = BookAdapter(
+            books = dbManager.getAllBooks(),
+            onStatusChanged = { id, isRead ->
+                dbManager.updateBookStatus(id, isRead)
+                refreshList()
+            },
+            onDeleteClicked = { id ->
+                dbManager.deleteBook(id)
+                refreshList()
+                Toast.makeText(context, "Book removed", Toast.LENGTH_SHORT).show()
+            }
         )
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerBooks.adapter = adapter
+        rvBooks.adapter = bookAdapter
     }
 
-    private fun setupListeners() {
-        btnOk.setOnClickListener {
-            handleOkButtonClick()
+    private fun setupFilter(view: View) {
+        rgFilter = view.findViewById(R.id.rgFilter)
+        rgFilter.setOnCheckedChangeListener { _, _ ->
+            refreshList()
         }
     }
 
-    private fun handleOkButtonClick() {
-        val selectedBook = spinnerBooks.selectedItem.toString()
-        val selectedYearId = radioGroupYears.checkedRadioButtonId
-
-        if (selectedYearId == -1) {
-            showWarningDialog(getString(R.string.warning_message))
-            return
+    private fun refreshList() {
+        val allBooks = dbManager.getAllBooks()
+        val filteredBooks = when (rgFilter.checkedRadioButtonId) {
+            R.id.rbRead -> allBooks.filter { it.isRead }
+            R.id.rbUnread -> allBooks.filter { !it.isRead }
+            else -> allBooks
         }
-
-        val selectedRadioButton = requireView().findViewById<RadioButton>(selectedYearId)
-        val selectedYear = selectedRadioButton.text.toString()
-
-        val resultText = getString(R.string.result_format, selectedBook, selectedYear)
-
-        dataPasser?.onDataPassed(resultText)
+        bookAdapter.updateData(filteredBooks)
     }
 
-    private fun showWarningDialog(message: String) {
+    private fun showAddBookDialog() {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_book, null)
+        val etTitle = dialogView.findViewById<EditText>(R.id.etTitle)
+        val etAuthor = dialogView.findViewById<EditText>(R.id.etAuthor)
+        val etYear = dialogView.findViewById<EditText>(R.id.etYear)
+
         AlertDialog.Builder(requireContext())
-            .setTitle("Incomplete Data")
-            .setMessage(message)
-            .setPositiveButton("OK") { dialog, _ ->
-                dialog.dismiss()
+            .setView(dialogView)
+            .setPositiveButton(R.string.btn_save) { dialog, _ ->
+                val title = etTitle.text.toString().trim()
+                val author = etAuthor.text.toString().trim()
+                val yearStr = etYear.text.toString().trim()
+
+                if (title.isNotEmpty() && author.isNotEmpty() && yearStr.isNotEmpty()) {
+                    val year = yearStr.toIntOrNull() ?: 0
+                    val newBook = Book(title = title, author = author, year = year)
+
+                    val id = dbManager.insertBook(newBook)
+                    if (id != -1L) {
+                        refreshList()
+                        dataPasser?.onDataPassed("Added: $title")
+                    }
+                    dialog.dismiss()
+                } else {
+                    Toast.makeText(context, R.string.error_empty_fields, Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(R.string.btn_cancel) { dialog, _ ->
+                dialog.cancel()
             }
             .show()
-    }
-
-    fun clearForm() {
-        if (::spinnerBooks.isInitialized && ::radioGroupYears.isInitialized) {
-            spinnerBooks.setSelection(0)
-            radioGroupYears.clearCheck()
-        }
     }
 }

@@ -1,35 +1,22 @@
 package com.example.lb1
 
-import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import com.example.lb1.data.DatabaseManager
 
 class OutputFragment : Fragment() {
 
-    // Interface to communicate with MainActivity
-    interface OnCancelListener {
-        fun onCancelClicked()
-    }
-
-    private var cancelListener: OnCancelListener? = null
-    private lateinit var tvResult: TextView
-    private lateinit var btnCancel: Button
-
-    override fun onAttach(context: Context) {
-        super.onAttach(context)
-        if (context is OnCancelListener) {
-            cancelListener = context
-        }
-    }
+    private lateinit var tvTotalCount: TextView
+    private lateinit var tvReadCount: TextView
+    private lateinit var tvUnreadCount: TextView
+    private lateinit var dbManager: DatabaseManager
 
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
+        inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         return inflater.inflate(R.layout.fragment_output, container, false)
@@ -38,33 +25,28 @@ class OutputFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        initializeViews(view)
-        displayReceivedData()
-        setupListeners()
+        dbManager = DatabaseManager(requireContext())
+
+        tvTotalCount = view.findViewById(R.id.tvTotalCount)
+        tvReadCount = view.findViewById(R.id.tvReadCount)
+        tvUnreadCount = view.findViewById(R.id.tvUnreadCount)
+
+        updateStatistics()
     }
 
-    private fun initializeViews(view: View) {
-        tvResult = view.findViewById(R.id.tvResult)
-        btnCancel = view.findViewById(R.id.btnCancel)
+    override fun onResume() {
+        super.onResume()
+        updateStatistics()
     }
 
-    private fun displayReceivedData() {
-        // Retrieve the data from the Bundle
-        val text = arguments?.getString("RESULT_TEXT")
-        if (text != null) {
-            tvResult.text = text
-        }
-    }
+    private fun updateStatistics() {
+        val allBooks = dbManager.getAllBooks()
+        val total = allBooks.size
+        val read = allBooks.count { it.isRead }
+        val unread = total - read
 
-    private fun setupListeners() {
-        btnCancel.setOnClickListener {
-            // Notify MainActivity to close this fragment
-            cancelListener?.onCancelClicked()
-        }
-    }
-
-    override fun onDetach() {
-        super.onDetach()
-        cancelListener = null
+        tvTotalCount.text = getString(R.string.stats_value_format, total)
+        tvReadCount.text = getString(R.string.stats_value_format, read)
+        tvUnreadCount.text = getString(R.string.stats_value_format, unread)
     }
 }
